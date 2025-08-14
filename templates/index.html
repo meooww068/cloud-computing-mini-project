@@ -20,8 +20,6 @@
 <body>
 
 
-<!-- Logo mờ giữa màn hình -->
-<div class="bg-logo"><img src="{{ url_for('static', filename='logo.png') }}" alt=""></div>
 
 <!-- Nội dung chính -->
 <div class="container py-5 content">
@@ -150,58 +148,69 @@
 <div class="full-logo"><img src="{{ url_for('static', filename='logo.png') }}" alt=""></div>
 
 <script>
-  // Hiện/ẩn ô "Môn mới"
   const sel = document.getElementById('monHocSelect');
   const monMoiGroup = document.getElementById('monMoiGroup');
-  function toggleMonMoi() { monMoiGroup.style.display = (sel.value === 'Khác') ? 'block' : 'none'; }
+
+  // Hiển thị/ẩn ô "Môn mới"
+  function toggleMonMoi() { 
+    monMoiGroup.style.display = (sel.value === 'Khác') ? 'block' : 'none'; 
+  }
+
+  // Khi chọn môn học khác
   if (sel) {
-    sel.addEventListener('change', toggleMonMoi);
+    sel.addEventListener('change', function() {
+      toggleMonMoi();
+
+      // Xóa dữ liệu dự đoán trước
+      localStorage.removeItem('predictions');
+
+      // Reset các input về giá trị mặc định
+      document.querySelector('input[name="diem_dau_gio"]').value = 0;
+      document.querySelector('input[name="diem_ky_nang"]').value = 0;
+      document.querySelector('select[name="so_buoi_di_hoc"]').selectedIndex = 0;
+      document.querySelector('select[name="muc_do_tap_trung"]').selectedIndex = 0;
+      document.querySelector('select[name="muc_do_tiep_nhan"]').selectedIndex = 0;
+      document.querySelector('select[name="muc_do_tu_hoc"]').selectedIndex = 0;
+    });
+
     document.addEventListener('DOMContentLoaded', toggleMonMoi);
   }
 
-  // Quản lý 5 lần dự đoán + Modal
+  // Quản lý 9 lần dự đoán + Modal
   document.addEventListener("DOMContentLoaded", function () {
     let preds = JSON.parse(localStorage.getItem('predictions') || '[]');
 
-    // Nếu vừa POST có prediction -> thêm vào danh sách (vẫn lưu error, nhưng alert dùng MAD)
+    // Nếu vừa POST có prediction -> thêm vào danh sách
     {% if prediction is not none %}
       preds.push({
         score: {{ prediction }},
         error: {{ error_margin|default('0') }},
         time: Date.now()
       });
-      if (preds.length > 5) preds = preds.slice(-5);
+      if (preds.length > 9) preds = preds.slice(-9);
       localStorage.setItem('predictions', JSON.stringify(preds));
     {% endif %}
 
-    // Khi đủ 5 lần -> tính Điểm TB (5 lần) và Sai số so với TB (MAD)
-    if (preds.length === 5) {
+    // Khi đủ 9 lần -> tính trung bình và MAD
+    if (preds.length === 9) {
       const scores = preds.map(p => Number(p.score));
       const avgScore = scores.reduce((a,b)=>a+b,0) / scores.length;
-      const mad = scores.reduce((s, x)=> s + Math.abs(x - avgScore), 0) / scores.length; // sai số so với TB
+      const mad = scores.reduce((s, x)=> s + Math.abs(x - avgScore), 0) / scores.length;
 
-      let header = '';
-      let colorClass = '';
-      if (avgScore < 4) {
-        header = '⚠️ Bạn cần chú tâm vào môn học hơn.';
-        colorClass = 'text-danger';
-      } else if (avgScore > 8.5) {
-        header = '✅ Bạn làm tốt lắm!';
-        colorClass = 'text-success';
-      } else {
-        header = '📊 Kết quả trung bình';
-        colorClass = 'text-primary';
-      }
+      let header = '', colorClass = '';
+      if (avgScore < 4) { header='⚠️ Bạn cần chú tâm vào môn học hơn.'; colorClass='text-danger'; }
+      else if (avgScore > 8.5) { header='✅ Bạn làm tốt lắm!'; colorClass='text-success'; }
+      else { header='📊 Kết quả trung bình'; colorClass='text-primary'; }
 
       document.getElementById("avgModalBody").innerHTML =
         `<p class="${colorClass}">${header}</p>
-         <p>Điểm trung bình (5 lần): <strong>${avgScore.toFixed(2)}</strong></p>
+         <p>Điểm trung bình (9 lần): <strong>${avgScore.toFixed(2)}</strong></p>
          <p>Sai số so với TB (MAD): <strong>±${mad.toFixed(2)}</strong></p>`;
 
       const modal = new bootstrap.Modal(document.getElementById('avgModal'));
       modal.show();
 
-      // Nút OK -> xoá dữ liệu & reload về trang trắng cho người dùng khác
+      // Nút OK -> xóa dữ liệu và reload trang
       document.getElementById("resetBtn").onclick = () => {
         localStorage.removeItem('predictions');
         window.location.href = '{{ url_for("index") }}';
@@ -209,5 +218,6 @@
     }
   });
 </script>
+
 </body>
 </html>
