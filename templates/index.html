@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dự đoán điểm cuối kỳ</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <style>
+    body { background: #f6f8fc; position: relative; margin: 0; }
+    .bg-logo { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; opacity: .25; pointer-events: none; z-index: 1; }
+    .bg-logo img { width: 70%; max-width: 1000px; }
+    .content { position: relative; z-index: 2; }
+    .full-logo { position: fixed; inset: 0; opacity: .5; z-index: 0; pointer-events: none; }
+    .full-logo img { width: 100%; height: 100%; object-fit: cover; }
+    .card { border-radius: 16px; background: rgba(255, 255, 255, 0.85); }
+  </style>
+</head>
+<body>
+
+<!-- Logo mờ giữa màn hình -->
+<div class="bg-logo"><img src="{{ url_for('static', filename='logo.png') }}" alt=""></div>
+
+<!-- Nội dung chính -->
+<div class="container py-5 content">
+  <div class="row justify-content-center">
+    <div class="col-lg-9">
+      <div class="card shadow p-4 mb-4">
+        <h3 class="text-center text-primary mb-3">🎯 Dự đoán điểm cuối kỳ</h3>
+        <form method="POST">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Môn học (chọn)</label>
+              <select class="form-select" name="mon_hoc" id="monHocSelect">
+                {% for sub in subjects %}
+                  <option value="{{ sub }}" {% if request.form.get('mon_hoc')==sub %}selected{% endif %}>{{ sub }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6" id="monMoiGroup" style="display: {{ 'block' if request.form.get('mon_hoc')=='Khác' else 'none' }};">
+              <label class="form-label">Nhập môn mới</label>
+              <input class="form-control" type="text" name="mon_moi" value="{{ request.form.get('mon_moi','') }}">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Điểm đầu giờ (0-10)</label>
+              <input class="form-control" type="number" name="diem_dau_gio" step="0.1" min="0" max="10" value="{{ request.form.get('diem_dau_gio','0.0') }}">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Điểm kỹ năng (0-10)</label>
+              <input class="form-control" type="number" name="diem_ky_nang" step="0.1" min="0" max="10" value="{{ request.form.get('diem_ky_nang','0.0') }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Số buổi đi học</label>
+              <select class="form-select" name="so_buoi_di_hoc">
+                {% for val in ["đủ","vắng 1","vắng 2","vắng 3"] %}
+                  <option value="{{ val }}" {% if request.form.get('so_buoi_di_hoc')==val %}selected{% endif %}>{{ val }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Mức độ tập trung</label>
+              <select class="form-select" name="muc_do_tap_trung">
+                {% for val in ["0-20%","21-40%","41-60%","61-80%","81-100%"] %}
+                  <option value="{{ val }}" {% if request.form.get('muc_do_tap_trung')==val %}selected{% endif %}>{{ val }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Mức độ tiếp nhận kiến thức</label>
+              <select class="form-select" name="muc_do_tiep_nhan">
+                {% for val in ["0-20%","21-40%","41-60%","61-80%","81-100%"] %}
+                  <option value="{{ val }}" {% if request.form.get('muc_do_tiep_nhan')==val %}selected{% endif %}>{{ val }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Mức độ tự học</label>
+              <select class="form-select" name="muc_do_tu_hoc">
+                {% for val in ["<1h","<3h",">3h"] %}
+                  <option value="{{ val }}" {% if request.form.get('muc_do_tu_hoc')==val %}selected{% endif %}>{{ val }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <div class="mt-3 d-flex gap-2">
+            <button class="btn btn-success">Dự đoán</button>
+          </div>
+        </form>
+      </div>
+
+      {% if prediction is not none %}
+      <div class="card shadow p-4 mb-4">
+        <h4 class="mb-2">Kết quả</h4>
+        <p class="mb-1">
+          Điểm dự đoán cuối kỳ: <strong>{{ prediction }}</strong>
+          <small>(Sai số ±{{ error_margin }})</small>
+        </p>
+        <canvas id="chartContrib" height="260"></canvas>
+        <script>
+          const vals = {{ chart_vals | tojson }};
+          const labels = ["Điểm đầu giờ","Điểm kỹ năng","Buổi học","Tập trung","Tiếp nhận","Tự học"];
+          const colors = vals.map(v => v>=7.5 ? "#2E86C1" : (v>=5 ? "#F1C40F" : "#E74C3C"));
+          const drawValuesPlugin = {
+            id: 'drawValues',
+            afterDatasetsDraw(chart) {
+              const {ctx} = chart;
+              ctx.save();
+              ctx.font = '12px system-ui';
+              ctx.fillStyle = '#333';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'bottom';
+              const dataset = chart.data.datasets[0];
+              chart.getDatasetMeta(0).data.forEach((bar, i) => {
+                ctx.fillText(dataset.data[i], bar.x, bar.y - 4);
+              });
+              ctx.restore();
+            }
+          };
+          new Chart(document.getElementById("chartContrib"), {
+            type: "bar",
+            data: { labels, datasets: [{ data: vals, backgroundColor: colors }]},
+            options: { plugins:{legend:{display:false}}, scales:{ y:{min:0,max:10} } },
+            plugins: [drawValuesPlugin]
+          });
+        </script>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Modal Thông báo Trung bình -->
+<div class="modal fade" id="avgModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content text-center">
+      <div class="modal-header">
+        <h5 class="modal-title">Thông báo</h5>
+      </div>
+      <div class="modal-body" id="avgModalBody"></div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" id="resetBtn">OK</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Logo nền full màn hình -->
+<div class="full-logo"><img src="{{ url_for('static', filename='logo.png') }}" alt=""></div>
+
+<script>
+  // Hiện/ẩn ô "Môn mới"
+  const sel = document.getElementById('monHocSelect');
+  const monMoiGroup = document.getElementById('monMoiGroup');
+  function toggleMonMoi() { monMoiGroup.style.display = (sel.value === 'Khác') ? 'block' : 'none'; }
+  if (sel) {
+    sel.addEventListener('change', toggleMonMoi);
+    document.addEventListener('DOMContentLoaded', toggleMonMoi);
+  }
+
+  // Quản lý 5 lần dự đoán + Modal
+  document.addEventListener("DOMContentLoaded", function () {
+    let preds = JSON.parse(localStorage.getItem('predictions') || '[]');
+
+    // Nếu vừa POST có prediction -> thêm vào danh sách (vẫn lưu error, nhưng alert dùng MAD)
+    {% if prediction is not none %}
+      preds.push({
+        score: {{ prediction }},
+        error: {{ error_margin|default('0') }},
+        time: Date.now()
+      });
+      if (preds.length > 5) preds = preds.slice(-5);
+      localStorage.setItem('predictions', JSON.stringify(preds));
+    {% endif %}
+
+    // Khi đủ 5 lần -> tính Điểm TB (5 lần) và Sai số so với TB (MAD)
+    if (preds.length === 5) {
+      const scores = preds.map(p => Number(p.score));
+      const avgScore = scores.reduce((a,b)=>a+b,0) / scores.length;
+      const mad = scores.reduce((s, x)=> s + Math.abs(x - avgScore), 0) / scores.length; // sai số so với TB
+
+      let header = '';
+      let colorClass = '';
+      if (avgScore < 4) {
+        header = '⚠️ Bạn cần chú tâm vào môn học hơn.';
+        colorClass = 'text-danger';
+      } else if (avgScore > 8.5) {
+        header = '✅ Bạn làm tốt lắm!';
+        colorClass = 'text-success';
+      } else {
+        header = '📊 Kết quả trung bình';
+        colorClass = 'text-primary';
+      }
+
+      document.getElementById("avgModalBody").innerHTML =
+        `<p class="${colorClass}">${header}</p>
+         <p>Điểm trung bình (5 lần): <strong>${avgScore.toFixed(2)}</strong></p>
+         <p>Sai số so với TB (MAD): <strong>±${mad.toFixed(2)}</strong></p>`;
+
+      const modal = new bootstrap.Modal(document.getElementById('avgModal'));
+      modal.show();
+
+      // Nút OK -> xoá dữ liệu & reload về trang trắng cho người dùng khác
+      document.getElementById("resetBtn").onclick = () => {
+        localStorage.removeItem('predictions');
+        window.location.href = '{{ url_for("index") }}';
+      };
+    }
+  });
+</script>
+</body>
+</html>

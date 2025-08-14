@@ -1,0 +1,40 @@
+diem_dau_gio
+diem_ky_nang
+attendance_score
+tap_trung_score
+tiep_nhan_score
+tu_hoc_score
+mon_An toàn thông tin
+mon_Anh văn 1
+mon_Anh văn 2
+mon_Anh văn 3
+mon_Anh văn 4
+mon_Chủ nghĩa xã hội khoa học
+mon_Công nghệ .Net
+mon_Cơ sở dữ liệu
+mon_Cấu trúc dữ liệu và giải thuật
+mon_Cấu trúc máy tính và Hệ điều hành
+mon_Giáo dục thể chất 1
+mon_Giáo dục thể chất 2
+mon_Hệ quản trị cơ sở dữ liệu
+mon_Kinh tế chính trị Mác - Lênin
+mon_Kỹ thuật lập trình
+mon_Lập trình hướng đối tượng
+mon_Lịch sử Đảng Cộng sản Việt Nam
+mon_Marketing số
+mon_Mạng máy tính
+mon_Mạng máy tính nâng cao
+mon_Nhập môn công nghệ phần mềm
+mon_Phát triển ứng dụng .NET
+mon_Phân tích thiết kế hệ thống
+mon_Phương pháp phát triển phần mềm hướng đối tượng
+mon_Quản lý dự án CNTT
+mon_Quản trị hệ thống
+mon_Tin học đại cương
+mon_Toán cao cấp
+mon_Toán rời rạc
+mon_Triết học Mác - Lênin
+mon_Trí tuệ nhân tạo
+mon_Tư tưởng Hồ Chí Minh
+mon_Vật lý
+mon_Xác suất thống kê
